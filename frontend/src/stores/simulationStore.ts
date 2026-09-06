@@ -1,21 +1,43 @@
 import { create } from 'zustand'
-import type { SimulationEvent, SimulationResult } from '@/types'
 import { simulationApi } from '@/services/api'
+import { ApiError } from '@/services/api'
+import type { CareFlowCaseRequest, ReplanResultDto, SimulationEventDto } from '@/services/api/backendTypes'
 
 interface SimulationState {
-  result: SimulationResult | null
+  result: ReplanResultDto | null
   isSimulating: boolean
-  applyEvent: (caseId: string, event: SimulationEvent) => Promise<void>
+  error: string | null
+  replan: (
+    caseData: CareFlowCaseRequest,
+    completedPeriods: number,
+    completedPayments: number[],
+    event: SimulationEventDto,
+  ) => Promise<void>
   reset: () => void
+  clearError: () => void
 }
 
 export const useSimulationStore = create<SimulationState>((set) => ({
   result: null,
   isSimulating: false,
-  applyEvent: async (caseId, event) => {
-    set({ isSimulating: true })
-    const result = await simulationApi.applyEvent(caseId, event)
-    set({ result, isSimulating: false })
+  error: null,
+
+  clearError: () => set({ error: null }),
+  reset: () => set({ result: null, error: null }),
+
+  replan: async (caseData, completedPeriods, completedPayments, event) => {
+    set({ isSimulating: true, error: null })
+    try {
+      const result = await simulationApi.replan({
+        case: caseData,
+        completed_periods: completedPeriods,
+        completed_payments: completedPayments,
+        event,
+      })
+      set({ result, isSimulating: false })
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.userMessage : 'Simulation could not be completed.'
+      set({ error: msg, isSimulating: false })
+    }
   },
-  reset: () => set({ result: null }),
 }))

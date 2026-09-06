@@ -1,91 +1,64 @@
-import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { useCaseStore } from '@/stores/caseStore'
+import { useEffect } from 'react'
+import { useParams, Link, Navigate, Outlet } from 'react-router-dom'
+import { useCaseStore, DEMO_CASE_ID } from '@/stores/caseStore'
+import { Card } from '@/components/ui/Card'
 import { Tabs } from '@/components/ui/Tabs'
 import { Badge } from '@/components/ui/Badge'
-import { formatINR } from '@/utils/format'
-import { CaseOverviewTab } from './CaseOverviewTab'
-import { CaseTreatmentTab } from './CaseTreatmentTab'
-import { CaseCashflowTab } from './CaseCashflowTab'
-import { CaseRepaymentTab } from './CaseRepaymentTab'
-import { CaseSimulationTab } from './CaseSimulationTab'
-import { CaseLenderTab } from './CaseLenderTab'
-import { CaseActivityTab } from './CaseActivityTab'
+import { Loader2 } from 'lucide-react'
 
-const tabItems = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'treatment', label: 'Treatment' },
-  { key: 'cashflow', label: 'Cashflow' },
-  { key: 'repayment', label: 'Repayment' },
-  { key: 'simulation', label: 'Simulation' },
-  { key: 'lender', label: 'Lender Analysis' },
-  { key: 'activity', label: 'Activity' },
+const TABS = [
+  { label: 'Overview', path: '' },
+  { label: 'Treatment', path: 'treatment' },
+  { label: 'Cashflow', path: 'cashflow' },
+  { label: 'Repayment', path: 'repayment' },
+  { label: 'Simulation', path: 'simulation' },
+  { label: 'Lender', path: 'lender' },
 ]
 
-const statusLabel: Record<string, string> = {
-  stable: 'Stable',
-  review: 'Under Review',
-  replan: 'Replan Pending',
-  closed: 'Closed',
-}
-
 export function CaseDetailPage() {
-  const { caseId = '' } = useParams()
-  const { activeCase, loadCase } = useCaseStore()
-  const [tab, setTab] = useState('overview')
+  const { caseId } = useParams<{ caseId: string }>()
+  const { caseData, caseName, isLoading, loadDemoCase } = useCaseStore()
 
   useEffect(() => {
-    loadCase(caseId)
-    setTab('overview')
-  }, [caseId, loadCase])
+    if (!caseData) loadDemoCase()
+  }, [caseData, loadDemoCase])
 
-  if (!activeCase) {
-    return <p className="text-[13px] text-text-secondary">Loading case…</p>
+  // Only the canonical demo case exists
+  if (caseId !== DEMO_CASE_ID) {
+    return <Navigate to={`/app/cases/${DEMO_CASE_ID}`} replace />
   }
 
-  const c = activeCase
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-3 py-8 text-text-secondary">
+        <Loader2 size={16} className="animate-spin" />
+        <span>Loading case...</span>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-[24px] font-semibold text-text-primary">Case {c.id}</h1>
-            <Badge tone="muted">{statusLabel[c.status]}</Badge>
-          </div>
-          <p className="text-[13px] text-text-secondary mt-1">{c.patientLabel}</p>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-8 gap-y-2 text-[13px]">
-          <div>
-            <p className="text-text-muted">Outstanding loan</p>
-            <p className="text-text-primary tabular-nums mt-0.5">{formatINR(c.loan.outstandingPrincipal)}</p>
-          </div>
-          <div>
-            <p className="text-text-muted">Monthly income</p>
-            <p className="text-text-primary tabular-nums mt-0.5">{formatINR(c.financial.monthlyIncome)}</p>
-          </div>
-          <div>
-            <p className="text-text-muted">Household expenses</p>
-            <p className="text-text-primary tabular-nums mt-0.5">{formatINR(c.financial.monthlyHouseholdExpenses)}</p>
-          </div>
-          <div>
-            <p className="text-text-muted">Remaining tenure</p>
-            <p className="text-text-primary tabular-nums mt-0.5">{c.loan.remainingTenureMonths} months</p>
-          </div>
-        </div>
-      </div>
-
-      <Tabs items={tabItems} active={tab} onChange={setTab} />
-
+    <div className="space-y-4">
       <div>
-        {tab === 'overview' && <CaseOverviewTab c={c} />}
-        {tab === 'treatment' && <CaseTreatmentTab caseId={c.id} />}
-        {tab === 'cashflow' && <CaseCashflowTab caseId={c.id} />}
-        {tab === 'repayment' && <CaseRepaymentTab caseId={c.id} />}
-        {tab === 'simulation' && <CaseSimulationTab />}
-        {tab === 'lender' && <CaseLenderTab caseId={c.id} />}
-        {tab === 'activity' && <CaseActivityTab caseId={c.id} />}
+        <div className="flex items-center gap-2 mb-1">
+          <Link to="/app/cases" className="text-[13px] text-text-muted hover:text-text-secondary">Cases</Link>
+          <span className="text-text-muted">/</span>
+          <span className="text-[13px] text-text-primary">{DEMO_CASE_ID}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <h1 className="text-[22px] font-semibold text-text-primary">{caseName || 'Chemotherapy Demo — Canonical'}</h1>
+          <Badge tone="teal" className="text-[11px]">Synthetic demo</Badge>
+        </div>
       </div>
+
+      <Tabs
+        tabs={TABS.map((t) => ({
+          label: t.label,
+          href: `/app/cases/${DEMO_CASE_ID}${t.path ? '/' + t.path : ''}`,
+        }))}
+      />
+
+      <Outlet />
     </div>
   )
 }

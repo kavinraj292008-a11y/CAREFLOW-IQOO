@@ -1,20 +1,16 @@
-import { useEffect, useState } from 'react'
-import { casesApi } from '@/services/api'
-import type { CaseActivity } from '@/types'
 import { Card, CardHeader } from '@/components/ui/Card'
 
-export function CaseActivityTab({ caseId }: { caseId: string }) {
-  const [activity, setActivity] = useState<CaseActivity[]>([])
+const DEMO_ACTIVITY = [
+  { id: '1', timestamp: '2024-01-15T10:00:00Z', actor: 'System', description: 'Demo case loaded from /api/demo-case.' },
+  { id: '2', timestamp: '2024-01-15T10:01:00Z', actor: 'System', description: 'Repayment optimization completed via POST /api/repayment/optimize.' },
+]
 
-  useEffect(() => {
-    casesApi.getActivity(caseId).then(setActivity)
-  }, [caseId])
-
+export function CaseActivityTab() {
   return (
     <Card>
-      <CardHeader title="Activity" subtitle="Recent system and reviewer actions on this case." />
+      <CardHeader title="Prototype activity" subtitle="Activity is not persisted — this is a static demo log." />
       <div className="space-y-4">
-        {activity.map((a) => (
+        {DEMO_ACTIVITY.map((a) => (
           <div key={a.id} className="flex gap-4 text-[13px]">
             <div className="w-28 shrink-0 text-text-muted">{new Date(a.timestamp).toLocaleDateString()}</div>
             <div>
@@ -23,7 +19,6 @@ export function CaseActivityTab({ caseId }: { caseId: string }) {
             </div>
           </div>
         ))}
-        {activity.length === 0 && <p className="text-[13px] text-text-secondary">No activity recorded yet.</p>}
       </div>
     </Card>
   )

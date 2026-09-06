@@ -1,96 +1,114 @@
-import { useEffect, useState } from 'react'
-import { treatmentApi } from '@/services/api'
-import type { TreatmentPlan } from '@/types'
+import { useEffect } from 'react'
+import { useCaseStore } from '@/stores/caseStore'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { TreatmentCostChart } from '@/components/charts/TreatmentCostChart'
-import { TreatmentTimeline } from './TreatmentTimeline'
-import { formatINR, formatPercent } from '@/utils/format'
+import { formatINR } from '@/utils/format'
+import { periodLabel } from '@/utils/adapters'
+import { Loader2, AlertCircle } from 'lucide-react'
 
 export function TreatmentPage() {
-  const [presets, setPresets] = useState<Record<string, TreatmentPlan>>({})
-  const [selectedKey, setSelectedKey] = useState<string>('chemotherapy')
-  const [selectedPeriod, setSelectedPeriod] = useState<number | undefined>()
+  const { caseData, caseName, isLoading, error, loadDemoCase } = useCaseStore()
 
   useEffect(() => {
-    treatmentApi.listPresets().then(setPresets)
-  }, [])
+    if (!caseData) loadDemoCase()
+  }, [caseData, loadDemoCase])
 
-  const plan = presets[selectedKey]
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-3 py-8 text-text-secondary">
+        <Loader2 size={16} className="animate-spin" />
+        <span>Loading treatment data...</span>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <div className="flex items-start gap-3">
+          <AlertCircle size={16} className="text-stress-coral mt-0.5" />
+          <p className="text-[13px] text-text-secondary">{error}</p>
+        </div>
+      </Card>
+    )
+  }
+
+  if (!caseData) return null
+
+  const costs = caseData.treatment_costs
+  const chartData = costs.map((cost, i) => ({
+    period: i + 1,
+    label: periodLabel(i + 1),
+    expectedCost: cost,
+  }))
+
+  const totalTreatmentCost = costs.reduce((a, b) => a + b, 0)
+  const maxCost = Math.max(...costs)
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-[26px] font-semibold text-text-primary">Treatment Model</h1>
-        <p className="text-[14px] text-text-secondary mt-1">Model expected treatment cost and confidence over time.</p>
+        <h1 className="text-[26px] font-semibold text-text-primary">Treatment Timeline</h1>
+        <p className="text-[14px] text-text-secondary mt-1">
+          Illustrative synthetic treatment timeline derived from the canonical demo case.
+        </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {Object.entries(presets).map(([key, p]) => (
-          <button
-            key={key}
-            onClick={() => setSelectedKey(key)}
-            className={`text-[13px] font-medium px-3.5 py-2 rounded-sm border transition-colors ${
-              selectedKey === key
-                ? 'border-accent-teal/40 bg-white/[0.03] text-text-primary'
-                : 'border-border text-text-secondary hover:text-text-primary'
-            }`}
-          >
-            {p.name}
-          </button>
-        ))}
-        <button className="text-[13px] font-medium px-3.5 py-2 rounded-sm border border-border text-text-secondary hover:text-text-primary">
-          Custom Treatment
-        </button>
-      </div>
+      <Card>
+        <CardHeader title={caseName} subtitle="Illustrative synthetic treatment timeline — not medical advice." />
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-[13px]">
+          <div>
+            <p className="text-text-secondary">Treatment periods</p>
+            <p className="text-text-primary font-medium mt-1">{costs.length} months</p>
+          </div>
+          <div>
+            <p className="text-text-secondary">Total treatment cost</p>
+            <p className="text-stress-coral font-medium tabular-nums mt-1">{formatINR(totalTreatmentCost)}</p>
+          </div>
+          <div>
+            <p className="text-text-secondary">Peak single-period cost</p>
+            <p className="text-stress-coral font-medium tabular-nums mt-1">{formatINR(maxCost)}</p>
+          </div>
+        </div>
+      </Card>
 
-      {plan && (
-        <>
-          <Card>
-            <CardHeader
-              title={plan.name}
-              subtitle={`${plan.frequencyLabel} · ${plan.durationMonths} month duration · ${formatPercent(plan.confidence)} avg. confidence`}
-            />
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[13px] mb-2">
-              <div>
-                <p className="text-text-secondary">Duration</p>
-                <p className="text-text-primary mt-0.5">{plan.durationMonths} months</p>
-              </div>
-              <div>
-                <p className="text-text-secondary">Frequency</p>
-                <p className="text-text-primary mt-0.5">{plan.frequencyLabel}</p>
-              </div>
-              <div>
-                <p className="text-text-secondary">Expected total cost</p>
-                <p className="text-text-primary mt-0.5 tabular-nums">
-                  {formatINR(plan.phases.reduce((sum, p) => sum + p.expectedCost, 0))}
-                </p>
-              </div>
-              <div>
-                <p className="text-text-secondary">Status</p>
-                <p className="text-text-primary mt-0.5 capitalize">{plan.status}</p>
-              </div>
-            </div>
-          </Card>
+      <Card>
+        <CardHeader title="Treatment cost curve" subtitle="Expected cost per period. Irregularity drives cashflow stress." />
+        <TreatmentCostChart data={chartData} height={300} />
+      </Card>
 
-          <Card>
-            <CardHeader title="Treatment timeline" />
-            <TreatmentTimeline phases={plan.phases} selected={selectedPeriod} onSelect={setSelectedPeriod} />
-          </Card>
+      <Card>
+        <CardHeader title="Period breakdown" />
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]">
+            <thead>
+              <tr className="text-left text-text-muted border-b border-border">
+                <th className="py-2 font-medium">Period</th>
+                <th className="py-2 font-medium text-right">Expected cost</th>
+                <th className="py-2 font-medium text-right">% of total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {chartData.map((row) => (
+                <tr key={row.period} className="border-b border-border/60">
+                  <td className="py-2 text-text-primary">{row.label}</td>
+                  <td className="py-2 text-stress-coral tabular-nums text-right">{formatINR(row.expectedCost)}</td>
+                  <td className="py-2 text-text-secondary tabular-nums text-right">
+                    {((row.expectedCost / totalTreatmentCost) * 100).toFixed(1)}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
-          <Card>
-            <CardHeader title="Treatment cost chart" />
-            <TreatmentCostChart
-              data={plan.phases.map((p) => ({
-                period: p.period,
-                label: p.label,
-                expectedCost: p.expectedCost,
-                lowerBound: p.lowerBound,
-                upperBound: p.upperBound,
-              }))}
-            />
-          </Card>
-        </>
-      )}
+      <Card>
+        <p className="text-[12px] text-text-muted leading-relaxed">
+          Phase names, confidence intervals, and clinical statuses are not available in this prototype.
+          This timeline is derived from the /api/demo-case endpoint and shows expected costs per period only.
+        </p>
+      </Card>
     </div>
   )
 }

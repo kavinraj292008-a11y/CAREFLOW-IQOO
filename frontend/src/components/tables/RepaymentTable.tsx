@@ -1,10 +1,25 @@
 import { useState } from 'react'
-import type { RepaymentPeriod } from '@/types'
 import { Badge, stressTone } from '@/components/ui/Badge'
 import { formatINR, stressLabel } from '@/utils/format'
+import type { StressLevel } from '@/types'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 
-export function RepaymentTable({ periods }: { periods: RepaymentPeriod[] }) {
+export interface RepaymentTablePeriod {
+  period: number
+  label: string
+  medicalCost: number
+  traditionalPayment: number
+  careflowPayment: number
+  availableCash: number
+  stress: StressLevel
+  beginningBalance: number
+  interest: number
+  principal: number
+  endingBalance: number
+  changeReason?: string
+}
+
+export function RepaymentTable({ periods }: { periods: RepaymentTablePeriod[] }) {
   const [expanded, setExpanded] = useState<number | null>(null)
 
   return (
@@ -14,10 +29,10 @@ export function RepaymentTable({ periods }: { periods: RepaymentPeriod[] }) {
           <tr className="text-left text-text-muted border-b border-border">
             <th className="py-2 font-medium w-8" />
             <th className="py-2 font-medium">Period</th>
-            <th className="py-2 font-medium">Medical cost</th>
+            <th className="py-2 font-medium">Medical expense</th>
             <th className="py-2 font-medium">Traditional</th>
             <th className="py-2 font-medium">CareFlow</th>
-            <th className="py-2 font-medium">Available cash</th>
+            <th className="py-2 font-medium">Cashflow after</th>
             <th className="py-2 font-medium">Stress</th>
           </tr>
         </thead>
